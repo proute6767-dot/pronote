@@ -1,0 +1,25 @@
+name: Cours annules
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/cache@v4
+        with:
+          path: state.json
+          key: state-${{ github.run_id }}
+          restore-keys: state-
+      - run: pip install pronotepy
+      - run: python check.py
+        env:
+          PRONOTE_URL: ${{ secrets.PRONOTE_URL }}
+          PRONOTE_USER: ${{ secrets.PRONOTE_USER }}
+          PRONOTE_PASS: ${{ secrets.PRONOTE_PASS }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
