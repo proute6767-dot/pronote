@@ -6,45 +6,97 @@
 <style>
 :root{--bg:#0f1115;--card:#1a1d24;--tx:#eef0f4;--mut:#8b93a3;--ac:#4f8cff}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 system-ui,sans-serif;padding:env(safe-area-inset-top) 14px 90px}
-h1{font-size:22px;margin:16px 0 8px}.card{background:var(--card);border-radius:12px;padding:12px;margin:8px 0}
-.row{display:flex;justify-content:space-between;gap:10px}.mut{color:var(--mut);font-size:14px}
-.big{font-size:40px;font-weight:700;color:var(--ac)}.off{background:#5a1d24;text-decoration:line-through}
-nav{position:fixed;bottom:0;left:0;right:0;display:flex;overflow-x:auto;background:var(--card);padding:8px 8px calc(8px + env(safe-area-inset-bottom));gap:6px}
+h1{font-size:20px;margin:16px 0 8px}.card{background:var(--card);border-radius:12px;padding:12px;margin:8px 0}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px}.mut{color:var(--mut);font-size:14px}
+.big{font-size:44px;font-weight:700;color:var(--ac)}.hi{background:var(--ac);color:#fff;border-radius:12px;padding:12px;margin:8px 0}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;overflow-x:auto;background:var(--card);padding:8px 8px calc(8px + env(safe-area-inset-bottom));gap:6px;z-index:5}
 nav button{flex:none;background:none;border:0;color:var(--mut);padding:8px 12px;border-radius:10px;font:inherit}
-nav button.on{background:var(--ac);color:#fff}input,button.go{font:inherit;padding:10px;border-radius:10px;border:0}
+nav button.on{background:var(--ac);color:#fff}input,button.go,a.go{font:inherit;padding:10px 14px;border-radius:10px;border:0;background:var(--ac);color:#fff;text-decoration:none;display:inline-block}
 .sw{display:flex;gap:8px;flex-wrap:wrap}.sw button{width:44px;height:44px;border-radius:50%;border:2px solid var(--mut)}
 .g1{color:#ff6b6b}.g2{color:#ffb84d}.g3{color:#5fd68a}
+.strip{display:flex;gap:6px;overflow-x:auto;margin:10px 0}.strip button{flex:none;border:0;border-radius:10px;padding:6px 10px;background:var(--card);color:var(--tx);font:inherit;text-align:center}.strip .on{background:var(--ac);color:#fff}
+.grid{position:relative;margin:14px 0 0 40px}.hl{position:absolute;left:-40px;right:0;border-top:1px solid #8883;font-size:12px;color:var(--mut)}
+.blk{position:absolute;left:4px;right:0;border-radius:10px;padding:5px 9px;overflow:hidden;color:#fff;font-size:14px;line-height:1.25}
+.bad{background:#b3261e!important;text-decoration:line-through}.warn{background:#d9822b!important}
+.star{background:none;border:0;font-size:26px;padding:2px}
 </style></head><body>
 <div id="app"></div><nav id="nav"></nav>
 <script>
 const T={"Sombre":["#0f1115","#1a1d24","#eef0f4","#8b93a3"],"Clair":["#f3f4f7","#ffffff","#16181d","#667085"],"Nuit bleue":["#0a1530","#13224a","#eaf0ff","#8fa3d6"],"Violet":["#1a1030","#2a1b4d","#f1eaff","#b39ddb"],"Rose":["#2a1020","#3d1a30","#ffe9f4","#d99ab8"]};
-const TABS=["Emploi du temps","Notes","Devoirs","Vie scolaire","Messages","Infos","Cantine","Thème"];
-let D=null,tab=0;
+const TABS=["📅 Planning","📝 Notes","🎒 Devoirs","📚 Cours","🍟 Cantine","🏫 Vie sco","💬 Messages","📢 Infos","🎨 Thème"];
+const BOOST=["Chaque note est une marche, tu montes 🚀","Un petit effort aujourd'hui, une grosse note demain 💪","Tu peux le faire, vraiment ! 🔥","Révise 15 minutes ce soir : ça change tout ⏱️","Les meilleurs ont aussi des mauvaises notes, ils continuent 😎"];
+const EM=[["frite","🍟"],["burger","🍔"],["pizza","🍕"],["poisson","🐟"],["poulet","🍗"],["nugget","🍗"],["pâte","🍝"],["lasagne","🍝"],["riz","🍚"],["salade","🥗"],["fromage","🧀"],["steak","🥩"],["saucisse","🌭"],["gâteau","🍰"],["tarte","🥧"],["fruit","🍎"],["yaourt","🥛"],["légume","🥦"],["haricot","🥦"]];
+const FAT=/frite|burger|pizza|nugget|pané|gratin|saucisse|fromage|beignet|croque|lasagne|cordon|crème|chocolat/i;
+let D=null,C=null,tab=0,day=new Date();day.setHours(0,0,0,0);
 const $=id=>document.getElementById(id),L=localStorage;
+const E=s=>s==null?"":String(s).replace(/[<>&]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]));
 const fmt=(s,o)=>new Date(s).toLocaleString("fr-FR",o);
-function theme(){const t=T[L.theme||"Sombre"];const r=document.documentElement.style;["--bg","--card","--tx","--mut"].forEach((k,i)=>r.setProperty(k,t[i]));r.setProperty("--ac",L.ac||"#4f8cff")}
-async function load(fresh){
- if(!L.code){L.code=prompt("Code d'accès")||"";}
- $("app").innerHTML="<p class=mut>Chargement…</p>";
- const r=await fetch("/api/data"+(fresh?"?fresh=1":""),{headers:{"X-Code":L.code}});
- if(r.status==401){L.code="";$("app").innerHTML="<p>Code incorrect. Recharge la page.</p>";return}
- if(!r.ok){$("app").innerHTML="<p>Pronote ne répond pas. Réessaie dans une minute.</p>";return}
- D=await r.json();draw()}
+const num=x=>parseFloat(String(x).replace(",","."));
+const hue=s=>{let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))%360;return h};
+const same=(a,b)=>new Date(a).toDateString()==new Date(b).toDateString();
 const cls=(n,o)=>{const v=n/o*20;return v<10?"g1":v<14?"g2":"g3"};
+const hm={hour:"2-digit",minute:"2-digit"};
+function theme(){const t=T[L.theme||"Sombre"],r=document.documentElement.style;["--bg","--card","--tx","--mut"].forEach((k,i)=>r.setProperty(k,t[i]));r.setProperty("--ac",L.ac||"#4f8cff")}
+async function api(p){
+ if(!L.code)L.code=prompt("Code d'accès")||"";
+ const r=await fetch(p,{headers:{"X-Code":L.code}});
+ if(r.status==401){L.code="";throw "Code incorrect. Recharge la page."}
+ if(!r.ok)throw "Pronote ne répond pas. Réessaie dans une minute.";
+ return r.json()}
+async function load(f){$("app").innerHTML="<p class=mut>Chargement…</p>";try{D=await api("/api/data"+(f?"?fresh=1":""));draw()}catch(e){$("app").innerHTML="<p>"+e+"</p>"}}
+function mv(n){day=new Date(day.getTime()+n*864e5);draw()}
+function plan(){
+ let h=`<div class=row><button class=go onclick="mv(-1)">◀</button><b>${fmt(day,{weekday:"long",day:"numeric",month:"long"})}</b><button class=go onclick="mv(1)">▶</button></div><div class=strip>`;
+ for(let i=-3;i<=10;i++){const d=new Date(day.getTime()+i*864e5);h+=`<button class="${i==0?"on":""}" onclick="day=new Date(${d.getTime()});draw()">${fmt(d,{weekday:"short"})}<br>${d.getDate()}</button>`}
+ h+=`</div><button class=go onclick="day=new Date();day.setHours(0,0,0,0);draw()">Aujourd'hui</button>`;
+ const ls=D.lessons.filter(l=>same(l.start,day));
+ if(!ls.length)return h+"<p>Rien ce jour-là 🎉</p>";
+ const PX=64,t0=Math.min(8,new Date(ls[0].start).getHours()),t1=Math.max(17,Math.ceil(Math.max(...ls.map(l=>{const e=new Date(l.end);return e.getHours()+e.getMinutes()/60}))));
+ h+=`<div class=grid style="height:${(t1-t0)*PX}px">`;
+ for(let x=t0;x<=t1;x++)h+=`<div class=hl style="top:${(x-t0)*PX}px">${x}h</div>`;
+ for(const l of ls){const s=new Date(l.start),e=new Date(l.end),top=(s.getHours()+s.getMinutes()/60-t0)*PX,ht=(e-s)/36e5*PX-3;
+  const st=l.status||"",k=/annul/i.test(st)||(l.canceled&&!st)?"bad":(st||l.canceled)?"warn":"";
+  h+=`<div class="blk ${k}" style="top:${top}px;height:${ht}px;background:hsl(${hue(l.s)} 55% 38%)"><b>${E(l.s)}</b> ${l.test?"📝 Éval":""}<br>${fmt(s,hm)}–${fmt(e,hm)}${l.room?" · "+E(l.room):""}${k?`<br><b>${E(st||"Annulé")}</b>`:""}</div>`}
+ return h+"</div>"}
+function notes(){
+ let h=`<div class=hi>${BOOST[new Date().getDate()%BOOST.length]}</div><h1>Moyenne générale ${num(D.overall)>=14?"👑":""}</h1><div class=big>${E(D.overall)||"–"}</div>`;
+ const av=D.averages.map(a=>({...a,m:num(a.me),c:num(a.cls)})).filter(a=>!isNaN(a.m)),dl=a=>a.m-(a.c||0);
+ const best=[...av].sort((a,b)=>dl(b)-dl(a))[0],low=[...av].sort((a,b)=>dl(a)-dl(b))[0];
+ if(best)h+=`<div class=card>👑 Meilleure matière : <b>${E(best.s)}</b> (${best.me}, classe ${best.cls}). Continue !</div>`;
+ if(low&&low!==best)h+=`<div class=card>🎯 À travailler : <b>${E(low.s)}</b> (${low.me} contre ${low.cls} pour la classe). Relis tes dernières corrections 💪</div>`;
+ h+="<h1>Par matière</h1>";
+ for(const a of av)h+=`<div class="card row"><b>${E(a.s)} ${dl(a)>2?"👑":""}</b><span class="${cls(a.m,20)}">${a.me} <span class=mut>(classe ${a.cls})</span></span></div>`;
+ h+="<h1>Dernières notes</h1>";
+ for(const x of D.grades.slice(-25).reverse()){const n=num(x.grade),o=num(x.out_of),a=num(x.avg),ok=!isNaN(n);
+  h+=`<div class=card><div class=row><span><b>${E(x.s)}</b> ${ok&&n/o>=.8?"👑":""}<br><span class=mut>${fmt(x.date,{day:"numeric",month:"short"})} · coef ${x.coef}</span></span><b class="${ok?cls(n,o):""}">${E(x.grade)}/${E(x.out_of)}</b></div>`+
+  (x.avg?`<div class=mut>Classe : ${E(x.avg)} (min ${E(x.min)}, max ${E(x.max)})</div>`:"")+
+  (x.comment?`<div>💬 Le prof : « ${E(x.comment)} »</div>`:"")+
+  (ok&&!isNaN(a)?`<div class=mut>${n>=a?"Au-dessus de la classe, bravo 🎉":"Sous la moyenne de la classe : refais les exercices ratés 🎯"}</div>`:"")+`</div>`}
+ return h}
+function devoirs(){
+ let h="<h1>Devoirs 🎒</h1>",d="";
+ for(const x of D.homework){if(!same(x.date,d||0)||!d){d=x.date;const t=same(d,new Date())?"Aujourd'hui":same(d,Date.now()+864e5)?"Demain":fmt(d,{weekday:"long",day:"numeric",month:"long"});h+=`<h1>📅 Pour ${t}</h1>`}
+  h+=`<div class=card><b style="color:hsl(${hue(x.s)} 70% 65%)">${E(x.s)}</b> ${x.done?"✅":""}<br>${E(x.text)}</div>`}
+ return h}
+function cours(){
+ if(!C){api("/api/courses").then(r=>{C=r;draw()}).catch(e=>$("app").innerHTML="<p>"+e+"</p>");return "<p class=mut>Chargement des cours…</p>"}
+ let h="<h1>Contenu des cours 📚</h1><p class=mut>Appuie sur S'entraîner : un quiz s'ouvre dans Claude.</p>";
+ for(const x of C){const q="https://claude.ai/new?q="+encodeURIComponent(`Fais-moi un quiz de 5 questions, une par une, sur ce cours de ${x.s} : ${x.title||""}. ${x.text||""}\nCorrige-moi après chaque réponse. Si je me trompe, mets-moi un petit coup de pression drôle pour me motiver.`);
+  h+=`<div class=card><b style="color:hsl(${hue(x.s)} 70% 65%)">${E(x.s)}</b> ${x.test?"📝 Éval":""} <span class=mut>${fmt(x.date,{day:"numeric",month:"short"})}</span><br>${E(x.title)}<br><span class=mut>${E(x.text)}</span><p><a class=go target=_blank href="${q}">🎯 S'entraîner</a></p></div>`}
+ return h}
+function cantine(){
+ let h="<h1>Cantine 🍽️</h1>";
+ for(const m of D.menus){const all=m.meals.flat(),k=String(m.date).slice(0,10),r=+L["r"+k]||0,fat=Math.min(5,all.filter(f=>FAT.test(f)).length);
+  const em=[...new Set(all.map(f=>(EM.find(e=>f.toLowerCase().includes(e[0]))||[])[1]).filter(Boolean))].join(" ");
+  h+=`<div class=card><b>${fmt(m.date,{weekday:"long",day:"numeric"})}</b> ${em}<br>${m.meals.map(x=>x.map(E).join(", ")).filter(Boolean).join("<br>")}<p>Gras-o-mètre : ${fat?"🔥".repeat(fat):"🥗 léger"} ${fat>=3?"— tu vas être content 😂":""}</p><div>${[1,2,3,4,5].map(i=>`<button class=star onclick="L['r${k}']=${i};draw()">${i<=r?"⭐":"☆"}</button>`).join("")}</div></div>`}
+ return h}
+function vie(){return "<h1>Absences</h1>"+D.absences.map(x=>`<div class=card>${fmt(x.from,{day:"numeric",month:"short"})} <span class=mut>${x.ok?"justifiée":"non justifiée"}</span></div>`).join("")+"<h1>Retards</h1>"+D.delays.map(x=>`<div class=card>${fmt(x.date,{day:"numeric",month:"short"})} · ${x.min} min</div>`).join("")+"<h1>Punitions</h1>"+D.punishments.map(x=>`<div class=card>${fmt(x.date,{day:"numeric",month:"short"})} · ${E(x.what)}</div>`).join("")}
+function msgs(){return "<h1>Messages</h1>"+D.messages.map(x=>`<div class=card><b>${x.unread?"● ":""}${E(x.title)}</b><br><span class=mut>${E(x.by)}</span></div>`).join("")}
+function infos(){return "<h1>Informations</h1>"+D.infos.map(x=>`<div class=card><b>${E(x.title)}</b><br><span class=mut>${E(x.by)}</span><br>${E(x.text)}</div>`).join("")}
+function themeTab(){return `<h1>Fond</h1><div class=sw>${Object.keys(T).map(k=>`<button style="background:${T[k][0]}" title="${k}" onclick="L.theme='${k}';theme()"></button>`).join("")}</div><h1>Couleur principale</h1><input type=color value="${L.ac||"#4f8cff"}" oninput="L.ac=this.value;theme()"><p><button class=go onclick="C=null;load(true)">Actualiser Pronote</button></p>`}
 function draw(){
  $("nav").innerHTML=TABS.map((t,i)=>`<button class="${i==tab?"on":""}" onclick="tab=${i};draw()">${t}</button>`).join("");
- let h="";
- if(tab==0){h="<h1>Emploi du temps</h1>";let day="";for(const l of D.lessons){const d=fmt(l.start,{weekday:"long",day:"numeric",month:"long"});if(d!=day){day=d;h+=`<p class=mut>${d}</p>`}
-  h+=`<div class="card row ${l.canceled?"off":""}"><b>${l.s}</b><span>${fmt(l.start,{hour:"2-digit",minute:"2-digit"})}–${fmt(l.end,{hour:"2-digit",minute:"2-digit"})}</span></div>${l.canceled?"<div class=mut>Cours annulé</div>":l.room?`<div class=mut>Salle ${l.room}</div>`:""}`}}
- if(tab==1){h=`<h1>Moyenne générale</h1><div class=big>${D.overall||"–"}</div><h1>Par matière</h1>`;
-  for(const a of D.averages){const n=parseFloat(String(a.me).replace(",","."));h+=`<div class="card row"><b>${a.s}</b><span class="${isNaN(n)?"":cls(n,20)}">${a.me}</span></div><div class=mut>Classe : ${a.cls}</div>`}
-  h+="<h1>Dernières notes</h1>";for(const x of D.grades.slice(-30).reverse()){const n=parseFloat(String(x.grade).replace(",",".")),o=parseFloat(String(x.out_of).replace(",","."));h+=`<div class="card row"><span>${x.s}<br><span class=mut>${fmt(x.date,{day:"numeric",month:"short"})}</span></span><b class="${isNaN(n)?"":cls(n,o)}">${x.grade}/${x.out_of}</b></div>`}}
- if(tab==2){h="<h1>Devoirs</h1>"+D.homework.map(x=>`<div class=card><b>${x.s}</b> <span class=mut>pour le ${fmt(x.date,{weekday:"long",day:"numeric",month:"short"})}${x.done?" · fait":""}</span><br>${x.text}</div>`).join("")}
- if(tab==3){h="<h1>Absences</h1>"+D.absences.map(x=>`<div class=card>${fmt(x.from,{day:"numeric",month:"short"})} <span class=mut>${x.ok?"justifiée":"non justifiée"}</span></div>`).join("")+"<h1>Retards</h1>"+D.delays.map(x=>`<div class=card>${fmt(x.date,{day:"numeric",month:"short"})} · ${x.min} min <span class=mut>${x.ok?"justifié":"non justifié"}</span></div>`).join("")+"<h1>Punitions</h1>"+D.punishments.map(x=>`<div class=card>${fmt(x.date,{day:"numeric",month:"short"})} · ${x.what||""}</div>`).join("")}
- if(tab==4){h="<h1>Messages</h1>"+D.messages.map(x=>`<div class=card><b>${x.unread?"● ":""}${x.title}</b><br><span class=mut>${x.by||""}</span></div>`).join("")}
- if(tab==5){h="<h1>Informations</h1>"+D.infos.map(x=>`<div class=card><b>${x.title}</b><br><span class=mut>${x.by||""}</span><br>${x.text||""}</div>`).join("")}
- if(tab==6){h="<h1>Cantine</h1>"+D.menus.map(m=>`<div class=card><b>${fmt(m.date,{weekday:"long",day:"numeric"})}</b><br>${m.meals.map(x=>x.join(", ")).filter(Boolean).join("<br>")}</div>`).join("")}
- if(tab==7){h=`<h1>Fond</h1><div class=sw>${Object.keys(T).map(k=>`<button style="background:${T[k][0]}" title="${k}" onclick="L.theme='${k}';theme()"></button>`).join("")}</div><h1>Couleur principale</h1><input type=color value="${L.ac||"#4f8cff"}" oninput="L.ac=this.value;theme()"><p><button class=go onclick="load(true)">Actualiser Pronote</button></p>`}
- $("app").innerHTML=h||"<p class=mut>Rien à afficher.</p>"}
+ const v=[plan,notes,devoirs,cours,cantine,vie,msgs,infos,themeTab][tab];
+ $("app").innerHTML=v()||"<p class=mut>Rien à afficher.</p>"}
 theme();load();
 </script></body></html>
